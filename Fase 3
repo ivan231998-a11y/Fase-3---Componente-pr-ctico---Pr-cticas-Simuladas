@@ -1,0 +1,424 @@
+"""
+Fase3IvanGarzon.py
+EPS "Salvando Vidas" - Control de Usuarios
+GUI con Tkinter que implementa Pila (stack), Cola (queue) y Lista.
+Clave login: unad
+Autor: Iván Garzón 
+"""
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+from collections import deque
+import datetime
+import re
+
+# ------------------------------
+# Model: EstructuraDatosUsuario
+# ------------------------------
+class EstructuraDatosUsuario:
+    def __init__(self, tipo_id, numero_id, nombre, edad, estrato, tipo_atencion, copago, fecha):
+        self.tipo_id = tipo_id            # str
+        self.numero_id = numero_id        # str (digits)
+        self.nombre = nombre              # str
+        self.edad = int(edad)             # int
+        self.estrato = int(estrato)       # int
+        self.tipo_atencion = tipo_atencion# str
+        self.copago = int(copago)         # int (in pesos)
+        self.fecha = fecha                # str dd/mm/yyyy
+
+    def to_tuple(self):
+        return (self.tipo_id, self.numero_id, self.nombre, str(self.edad),
+                str(self.estrato), self.tipo_atencion, f"${self.copago:,}", self.fecha)
+
+# ------------------------------
+# Copago logic
+# ------------------------------
+def calcular_copago(estrato, tipo_atencion):
+    e = int(estrato)
+    if tipo_atencion == "Medicina general":
+        tabla = {1:0, 2:0, 3:10000, 4:15000, 5:20000, 6:30000}
+    else: # Examen laboratorio
+        tabla = {1:0, 2:0, 3:0, 4:5000, 5:10000, 6:20000}
+    return tabla.get(e, 0)
+
+# ------------------------------
+# App principal
+# ------------------------------
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Login - Salvando Vidas")
+        self.root.geometry("360x220")
+        self.center(self.root)
+
+        self.main_username = None
+
+        self.build_login()
+
+        # Data structures
+        self.stack = []           # pila -> list (push/pop)
+        self.queue = deque()      # cola -> collections.deque
+        self.lista = []           # lista -> list
+
+    def center(self, win):
+        win.update_idletasks()
+        w = win.winfo_width()
+        h = win.winfo_height()
+        ws = win.winfo_screenwidth()
+        hs = win.winfo_screenheight()
+        x = (ws // 2) - (w // 2)
+        y = (hs // 2) - (h // 2)
+        win.geometry(f"+{x}+{y}")
+
+    # ------------------------------
+    # Login UI
+    # ------------------------------
+    def build_login(self):
+        frm = ttk.Frame(self.root, padding=12)
+        frm.pack(fill="both", expand=True)
+
+        lbl = ttk.Label(frm, text="Login - Salvando Vidas", font=("Segoe UI", 14))
+        lbl.pack(pady=(0,10))
+
+        pw_lbl = ttk.Label(frm, text="Password:")
+        pw_lbl.pack(anchor="w")
+        self.pw_entry = ttk.Entry(frm, show="*")
+        self.pw_entry.pack(fill="x")
+        self.pw_entry.focus()
+
+        btn_frame = ttk.Frame(frm)
+        btn_frame.pack(pady=12, fill="x")
+
+        ingresar_btn = ttk.Button(btn_frame, text="Ingresar", command=self.check_password)
+        ingresar_btn.pack(side="left", expand=True, fill="x", padx=4)
+
+        acerca_btn = ttk.Button(btn_frame, text="Acerca de", command=self.show_about)
+        acerca_btn.pack(side="left", expand=True, fill="x", padx=4)
+
+        salir_btn = ttk.Button(btn_frame, text="Salir", command=self.root.quit)
+        salir_btn.pack(side="left", expand=True, fill="x", padx=4)
+
+    def show_about(self):
+        info = "Curso: Estructura de Datos\nAutor: Iván Garzón\nGrupo: 1"
+        messagebox.showinfo("Acerca de", info)
+
+    def check_password(self):
+        if self.pw_entry.get() == "unad":
+            self.open_main_window()
+        else:
+            messagebox.showerror("Error", "Contraseña incorrecta.")
+
+    # ------------------------------
+    # Ventana principal
+    # ------------------------------
+    def open_main_window(self):
+        # destroy login
+        for widget in self.root.winfo_children():
+            widget.destroy()
+        self.root.title("EPS Salvando Vidas – Control de Usuarios")
+        self.root.geometry("1000x620")
+        self.center(self.root)
+
+        # Top: selection of structure
+        top_frame = ttk.Frame(self.root, padding=8)
+        top_frame.pack(fill="x")
+
+        ttk.Label(top_frame, text="Estructura de datos:", font=("Segoe UI",10)).pack(side="left")
+        self.structure_var = tk.StringVar(value="Pila")
+        structure_menu = ttk.Combobox(top_frame, textvariable=self.structure_var, values=["Pila","Cola","Lista"], state="readonly", width=12)
+        structure_menu.pack(side="left", padx=8)
+
+        # Form frame
+        form = ttk.Frame(self.root, padding=8)
+        form.pack(fill="x")
+
+        # Left: input fields
+        left = ttk.Frame(form)
+        left.pack(side="left", fill="y", padx=(0,12))
+
+        ttk.Label(left, text="Tipo ID:").grid(row=0, column=0, sticky="w")
+        self.tipo_id = ttk.Combobox(left, values=["CC","CE","NUIP","PAS"], state="readonly", width=18)
+        self.tipo_id.grid(row=0, column=1, pady=2)
+
+        ttk.Label(left, text="Número ID:").grid(row=1, column=0, sticky="w")
+        self.num_id = ttk.Entry(left, width=20)
+        self.num_id.grid(row=1, column=1, pady=2)
+
+        ttk.Label(left, text="Nombre completo:").grid(row=2, column=0, sticky="w")
+        self.nombre = ttk.Entry(left, width=30)
+        self.nombre.grid(row=2, column=1, pady=2)
+
+        ttk.Label(left, text="Edad:").grid(row=3, column=0, sticky="w")
+        self.edad = ttk.Entry(left, width=8)
+        self.edad.grid(row=3, column=1, pady=2, sticky="w")
+
+        ttk.Label(left, text="Estrato:").grid(row=4, column=0, sticky="w")
+        self.estrato = ttk.Combobox(left, values=[1,2,3,4,5,6], state="readonly", width=5)
+        self.estrato.grid(row=4, column=1, pady=2, sticky="w")
+
+        ttk.Label(left, text="Tipo atención:").grid(row=5, column=0, sticky="w")
+        self.tipo_atencion = tk.StringVar(value="Medicina general")
+        rb1 = ttk.Radiobutton(left, text="Medicina general", variable=self.tipo_atencion, value="Medicina general", command=self.update_copago)
+        rb1.grid(row=5, column=1, sticky="w")
+        rb2 = ttk.Radiobutton(left, text="Examen laboratorio", variable=self.tipo_atencion, value="Examen laboratorio", command=self.update_copago)
+        rb2.grid(row=6, column=1, sticky="w")
+
+        # Copago (no editable)
+        ttk.Label(left, text="Valor copago:").grid(row=7, column=0, sticky="w")
+        self.copago_var = tk.StringVar(value="$0")
+        copago_lbl = ttk.Label(left, textvariable=self.copago_var)
+        copago_lbl.grid(row=7, column=1, sticky="w")
+
+        # Fecha (day/month/year) using spinboxes
+        ttk.Label(left, text="Fecha (dd/mm/yyyy):").grid(row=8, column=0, sticky="w")
+        fecha_frame = ttk.Frame(left)
+        fecha_frame.grid(row=8, column=1, sticky="w")
+        self.day_sb = tk.Spinbox(fecha_frame, from_=1, to=31, width=4)
+        self.day_sb.pack(side="left")
+        ttk.Label(fecha_frame, text="/").pack(side="left")
+        self.month_sb = tk.Spinbox(fecha_frame, from_=1, to=12, width=4)
+        self.month_sb.pack(side="left")
+        ttk.Label(fecha_frame, text="/").pack(side="left")
+        curr_year = datetime.date.today().year
+        self.year_sb = tk.Spinbox(fecha_frame, from_=1900, to=curr_year, width=6)
+        self.year_sb.delete(0, "end")
+        self.year_sb.insert(0, str(curr_year))
+
+        # Buttons (Register, Clear)
+        btns = ttk.Frame(left, padding=(0,8))
+        btns.grid(row=9, column=0, columnspan=2, pady=8, sticky="we")
+        reg_btn = ttk.Button(btns, text="Registrar", command=self.registrar)
+        reg_btn.pack(side="left", expand=True, fill="x", padx=4)
+        clear_btn = ttk.Button(btns, text="Limpiar", command=self.limpiar_campos)
+        clear_btn.pack(side="left", expand=True, fill="x", padx=4)
+        salir_btn = ttk.Button(btns, text="Salir", command=self.root.quit)
+        salir_btn.pack(side="left", expand=True, fill="x", padx=4)
+
+        # Right: Notebook with three Treeviews and their controls
+        right = ttk.Frame(form)
+        right.pack(side="left", fill="both", expand=True)
+
+        self.notebook = ttk.Notebook(right)
+        self.notebook.pack(fill="both", expand=True)
+
+        # Pila
+        self.tree_pila = self.create_treeview(self.notebook, "Pila")
+        self.notebook.add(self.tree_pila['frame'], text="Pila")
+
+        # Cola
+        self.tree_cola = self.create_treeview(self.notebook, "Cola")
+        self.notebook.add(self.tree_cola['frame'], text="Cola")
+
+        # Lista
+        self.tree_lista = self.create_treeview(self.notebook, "Lista")
+        self.notebook.add(self.tree_lista['frame'], text="Lista")
+
+        # Bind copy of selection changes - each tab has its own "Reporte" and "Eliminar" controls
+        # We'll create controls below for each treeview
+        for t in [self.tree_pila, self.tree_cola, self.tree_lista]:
+            self.add_controls_to_tree(t)
+
+        # set default copago update
+        self.update_copago()
+
+    def create_treeview(self, parent, name):
+        frame = ttk.Frame(parent)
+        tree = ttk.Treeview(frame, columns=("tipoid","numid","nombre","edad","estrato","atencion","copago","fecha"), show="headings", height=12)
+        for col, title in zip(tree['columns'], ["Tipo ID","Número ID","Nombre","Edad","Estrato","Atención","Copago","Fecha"]):
+            tree.heading(col, text=title)
+            tree.column(col, width=100, anchor="center")
+        tree.pack(side="top", fill="both", expand=True, padx=4, pady=4)
+        controls = ttk.Frame(frame)
+        controls.pack(side="top", fill="x", padx=4, pady=2)
+        return {'frame': frame, 'tree': tree, 'controls': controls, 'name': name}
+
+    def add_controls_to_tree(self, tree_struct):
+        t = tree_struct['tree']
+        frm = tree_struct['controls']
+        name = tree_struct['name']
+
+        report_btn = ttk.Button(frm, text="Reporte", command=lambda: self.reportar(name))
+        report_btn.pack(side="left", padx=6)
+        elim_btn = ttk.Button(frm, text="Eliminar", command=lambda: self.eliminar_registro(name))
+        elim_btn.pack(side="left", padx=6)
+        # for Lista, add a small entry to search id
+        if name == "Lista":
+            ttk.Label(frm, text="Buscador ID:").pack(side="left", padx=6)
+            self.search_lista = ttk.Entry(frm, width=12)
+            self.search_lista.pack(side="left")
+
+    # ------------------------------
+    # Helpers: validar, limpiar, obtener datos
+    # ------------------------------
+    def validar_campos(self):
+        # tipo_id selected
+        if not self.tipo_id.get():
+            messagebox.showwarning("Validación", "Seleccione tipo de identificación.")
+            return False
+        if not re.fullmatch(r"\d+", self.num_id.get() or ""):
+            messagebox.showwarning("Validación", "Número de identificación inválido (solo números).")
+            return False
+        if not re.fullmatch(r"[A-Za-zÁÉÍÓÚáéíóúÑñ ]{3,}", (self.nombre.get() or "").strip()):
+            messagebox.showwarning("Validación", "Nombre inválido (solo letras y espacios).")
+            return False
+        if not re.fullmatch(r"\d{1,3}", self.edad.get() or ""):
+            messagebox.showwarning("Validación", "Edad inválida (solo números).")
+            return False
+        if not self.estrato.get():
+            messagebox.showwarning("Validación", "Seleccione estrato.")
+            return False
+        # Fecha basic
+        try:
+            d = int(self.day_sb.get()); m = int(self.month_sb.get()); y = int(self.year_sb.get())
+            datetime.date(y,m,d)
+        except Exception:
+            messagebox.showwarning("Validación", "Fecha inválida.")
+            return False
+        return True
+
+    def get_fecha(self):
+        d = int(self.day_sb.get()); m = int(self.month_sb.get()); y = int(self.year_sb.get())
+        return f"{d:02d}/{m:02d}/{y}"
+
+    def limpiar_campos(self):
+        self.tipo_id.set('')
+        self.num_id.delete(0,"end")
+        self.nombre.delete(0,"end")
+        self.edad.delete(0,"end")
+        self.estrato.set('')
+        self.tipo_atencion.set("Medicina general")
+        self.update_copago()
+        today = datetime.date.today()
+        self.day_sb.delete(0,"end"); self.day_sb.insert(0, today.day)
+        self.month_sb.delete(0,"end"); self.month_sb.insert(0, today.month)
+        self.year_sb.delete(0,"end"); self.year_sb.insert(0, today.year)
+
+    def update_copago(self, *_):
+        estr = self.estrato.get()
+        if estr:
+            cop = calcular_copago(int(estr), self.tipo_atencion.get())
+        else:
+            cop = 0
+        self.copago_var.set(f"${cop:,}")
+
+    # ------------------------------
+    # Registrar / mostrar en treeviews
+    # ------------------------------
+    def registrar(self):
+        if not self.validar_campos():
+            return
+        tipo_id = self.tipo_id.get()
+        num = self.num_id.get()
+        nombre = self.nombre.get().strip()
+        edad = self.edad.get()
+        estr = int(self.estrato.get())
+        at = self.tipo_atencion.get()
+        cop = calcular_copago(estr, at)
+        fecha = self.get_fecha()
+
+        user = EstructuraDatosUsuario(tipo_id, num, nombre, edad, estr, at, cop, fecha)
+
+        estructura = self.structure_var.get()
+
+        if estructura == "Pila":
+            # push
+            self.stack.append(user)
+            tree = self.tree_pila['tree']
+            tree.insert("", "end", values=user.to_tuple())
+        elif estructura == "Cola":
+            # enqueue
+            self.queue.append(user)
+            tree = self.tree_cola['tree']
+            tree.insert("", "end", values=user.to_tuple())
+        else: # Lista
+            self.lista.append(user)
+            tree = self.tree_lista['tree']
+            tree.insert("", "end", values=user.to_tuple())
+
+        messagebox.showinfo("Registro", f"Registro agregado en {estructura}.")
+        self.limpiar_campos()
+
+    # ------------------------------
+    # Reportes solicitados
+    # ------------------------------
+    def reportar(self, estructura):
+        if estructura == "Pila":
+            total = sum(u.copago for u in self.stack)
+            messagebox.showinfo("Reporte Pila", f"Suma total copagos en Pila: ${total:,}")
+        elif estructura == "Cola":
+            count = len(self.queue)
+            messagebox.showinfo("Reporte Cola", f"Cantidad de registros en Cola: {count}")
+        else: # Lista
+            if len(self.lista) == 0:
+                messagebox.showinfo("Reporte Lista", "No hay registros en la Lista.")
+                return
+            prom = sum(u.edad for u in self.lista) / len(self.lista)
+            messagebox.showinfo("Reporte Lista", f"Promedio de edades en Lista: {prom:.2f}")
+
+    # ------------------------------
+    # Eliminar segun comportamiento
+    # ------------------------------
+    def eliminar_registro(self, estructura):
+        if estructura == "Pila":
+            if not self.stack:
+                messagebox.showwarning("Eliminar", "Pila vacía.")
+                return
+            confirm = messagebox.askyesno("Confirmar", "¿Desapilar el último registro?")
+            if not confirm: return
+            user = self.stack.pop()
+            # remove last row in treeview
+            tree = self.tree_pila['tree']
+            all_items = tree.get_children()
+            if all_items:
+                tree.delete(all_items[-1])
+            messagebox.showinfo("Eliminar", f"Registro con ID {user.numero_id} desapilado.")
+        elif estructura == "Cola":
+            if not self.queue:
+                messagebox.showwarning("Eliminar", "Cola vacía.")
+                return
+            confirm = messagebox.askyesno("Confirmar", "¿Desencolar el primer registro?")
+            if not confirm: return
+            user = self.queue.popleft()
+            tree = self.tree_cola['tree']
+            all_items = tree.get_children()
+            if all_items:
+                tree.delete(all_items[0])
+            messagebox.showinfo("Eliminar", f"Registro con ID {user.numero_id} desencolado.")
+        else: # Lista - delete by ID from search entry
+            id_buscar = (self.search_lista.get() or "").strip()
+            if not id_buscar:
+                messagebox.showwarning("Eliminar", "Digite número de identificación en el Buscador ID para Lista.")
+                return
+            # find
+            found = None
+            for i,u in enumerate(self.lista):
+                if u.numero_id == id_buscar:
+                    found = (i,u)
+                    break
+            if not found:
+                messagebox.showwarning("Eliminar", f"No existe registro con ID {id_buscar} en la Lista.")
+                return
+            confirm = messagebox.askyesno("Confirmar", f"¿Eliminar registro con ID {id_buscar}?")
+            if not confirm: return
+            idx, user = found
+            # remove from model
+            self.lista.pop(idx)
+            # remove from treeview by matching id
+            tree = self.tree_lista['tree']
+            for item in tree.get_children():
+                vals = tree.item(item, "values")
+                if vals[1] == id_buscar:
+                    tree.delete(item)
+                    break
+            messagebox.showinfo("Eliminar", f"Registro con ID {id_buscar} eliminado de la Lista.")
+
+# ------------------------------
+# Ejecutar app
+# ------------------------------
+def main():
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
